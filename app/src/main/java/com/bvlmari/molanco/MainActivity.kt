@@ -214,6 +214,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         cursor?.use {
+            val idColumn = it.getColumnIndexOrThrow(Media._ID)
             val pathColumn = it.getColumnIndexOrThrow(Media.DATA)
             val titleColumn = it.getColumnIndexOrThrow(Media.TITLE)
             val artistColumn = it.getColumnIndexOrThrow(Media.ARTIST)
@@ -222,6 +223,7 @@ class MainActivity : AppCompatActivity() {
             val albumIdColumn = it.getColumnIndexOrThrow(Media.ALBUM_ID)
 
             while (it.moveToNext()) {
+                val id = it.getLong(idColumn)
                 val path = it.getString(pathColumn)
                 val title = it.getString(titleColumn)
                 val artist = it.getString(artistColumn)
@@ -238,9 +240,9 @@ class MainActivity : AppCompatActivity() {
                 audioList.add(
                     AudioFile(
                         path = path,
-                        title = title,
-                        artist = artist,
-                        album = album,
+                        title = title ?: "Unknown Title",
+                        artist = artist ?: "Unknown Artist",
+                        album = album ?: "Unknown Album",
                         duration = duration,
                         artworkUri = artworkUri
                     )
