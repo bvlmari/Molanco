@@ -12,12 +12,14 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bvlmari.molanco.data.DatabaseHelper
 import com.bvlmari.molanco.data.model.AudioFile
 import com.bvlmari.molanco.service.MediaPlayerService
 import com.bumptech.glide.Glide
+import java.io.File
 
 class PlayerActivity : AppCompatActivity() {
     private lateinit var imageArtwork: ImageView
@@ -25,6 +27,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var textArtist: TextView
     private lateinit var buttonPlayPause: ImageButton
     private lateinit var buttonFavorite: ImageButton
+    private lateinit var buttonShare: ImageButton
     private lateinit var dbHelper: DatabaseHelper
     private var mediaPlayerService: MediaPlayerService? = null
     private var currentAudio: AudioFile? = null
@@ -57,6 +60,7 @@ class PlayerActivity : AppCompatActivity() {
         textArtist = findViewById(R.id.textArtist)
         buttonPlayPause = findViewById(R.id.buttonPlayPause)
         buttonFavorite = findViewById(R.id.buttonFavorite)
+        buttonShare = findViewById(R.id.buttonShare)
         val buttonBack = findViewById<ImageButton>(R.id.buttonBack)
 
         // Get audio file from intent
@@ -98,6 +102,26 @@ class PlayerActivity : AppCompatActivity() {
                 dbHelper.toggleFavorite(audio.path)
                 audio.isFavorite = !audio.isFavorite
                 updateFavoriteButton(audio.isFavorite)
+            }
+        }
+
+        buttonShare.setOnClickListener {
+            currentAudio?.let { audio ->
+                val file = File(audio.path)
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "${applicationContext.packageName}.provider",
+                    file
+                )
+                val shareIntent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    type = "audio/*"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_TITLE, audio.title)
+                    putExtra(Intent.EXTRA_TEXT, "Check out this song: ${audio.title} by ${audio.artist}")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Share audio via"))
             }
         }
 
