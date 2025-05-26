@@ -71,16 +71,14 @@ class PlayerActivity : AppCompatActivity() {
             updateFavoriteButton(audio.isFavorite)
 
             // Load artwork
-            if (audio.artworkUri != null) {
+            if (!audio.artworkUri.isNullOrEmpty()) {
                 Glide.with(this)
                     .load(Uri.parse(audio.artworkUri))
-                    .placeholder(R.drawable.ic_music_placeholder)
-                    .error(R.drawable.ic_music_placeholder)
+                    .placeholder(R.drawable.bg_artwork_placeholder)
+                    .error(R.drawable.bg_artwork_placeholder)
                     .into(imageArtwork)
             } else {
-                Glide.with(this)
-                    .load(R.drawable.ic_music_placeholder)
-                    .into(imageArtwork)
+                imageArtwork.setImageResource(R.drawable.bg_artwork_placeholder)
             }
         }
 

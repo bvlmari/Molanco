@@ -92,26 +92,11 @@ class MainActivity : AppCompatActivity() {
         // Then check permissions which will load the data
         checkAndRequestPermission()
         
-        val buttonBack = findViewById<ImageButton>(R.id.buttonBack)
         val buttonFavorites = findViewById<ImageButton>(R.id.buttonFavorites)
-        val buttonOptions = findViewById<ImageButton>(R.id.buttonOptions)
-        
-        buttonBack.setOnClickListener {
-            finish()
-        }
         
         buttonFavorites.setOnClickListener {
             val intent = Intent(this, FavoritesActivity::class.java)
             startActivity(intent)
-        }
-        
-        buttonOptions.setOnClickListener {
-            val shareIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, "Check out this awesome music player!")
-                type = "text/plain"
-            }
-            startActivity(Intent.createChooser(shareIntent, "Share via"))
         }
 
         // Bind to MediaPlayerService
@@ -144,13 +129,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestPermission() {
-        if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO),
-                PERMISSION_REQUIRED_CODE
-            )
+        val permissions = arrayOf(
+            android.Manifest.permission.READ_MEDIA_AUDIO,
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        )
+        
+        val notGrantedPermissions = permissions.filter { 
+            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED 
+        }.toTypedArray()
+
+        if (notGrantedPermissions.isNotEmpty()) {
+            requestPermissions(notGrantedPermissions, PERMISSION_REQUIRED_CODE)
         } else {
             loadAudioFiles()
+            handleIncomingIntent()
         }
     }
 
@@ -161,12 +153,90 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUIRED_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 loadAudioFiles()
+                handleIncomingIntent()
             } else {
-                Toast.makeText(this, "Permission denied. Cannot load audio files.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permissions denied. Some features may not work properly.", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun handleIncomingIntent() {
+        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
+            val uri = intent.data!!
+            val audioFile = getAudioFileFromUri(uri)
+            if (audioFile != null) {
+                // Launch PlayerActivity directly with the audio file
+                val playerIntent = Intent(this, PlayerActivity::class.java)
+                playerIntent.putExtra("audio", audioFile)
+                startActivity(playerIntent)
+            }
+        }
+    }
+
+    private fun getAudioFileFromUri(uri: Uri): AudioFile? {
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA
+        )
+
+        return try {
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                    val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                    val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                    val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                    val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+
+                    val id = cursor.getLong(idColumn)
+                    val title = cursor.getString(titleColumn) ?: uri.lastPathSegment ?: "Unknown Title"
+                    val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
+                    val album = cursor.getString(albumColumn) ?: "Unknown Album"
+                    val duration = cursor.getInt(durationColumn)
+                    val path = cursor.getString(dataColumn) ?: uri.path ?: return null
+
+                    // Get artwork URI using the media ID
+                    val artworkUri = ContentUris.withAppendedId(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        id
+                    ).toString()
+
+                    AudioFile(
+                        path = path,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        duration = duration,
+                        artworkUri = artworkUri
+                    )
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error getting audio file from URI: ${e.message}")
+            // Fallback to basic file information
+            uri.path?.let { path ->
+                AudioFile(
+                    path = path,
+                    title = uri.lastPathSegment ?: "Unknown Title",
+                    artist = "Unknown Artist",
+                    album = "Unknown Album",
+                    duration = 0
+                )
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent()
     }
 
     private fun loadAudioFiles() {
@@ -231,10 +301,10 @@ class MainActivity : AppCompatActivity() {
                 val duration = it.getInt(durationColumn)
                 val albumId = it.getLong(albumIdColumn)
 
-                // Get album artwork URI
+                // Get album artwork URI using the modern MediaStore approach
                 val artworkUri = ContentUris.withAppendedId(
-                    Uri.parse("content://media/external/audio/albumart"),
-                    albumId
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    id
                 ).toString()
 
                 audioList.add(

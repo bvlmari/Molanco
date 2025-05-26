@@ -9,6 +9,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bvlmari.molanco.R
 import com.bvlmari.molanco.data.DatabaseHelper
 import com.bvlmari.molanco.data.model.AudioFile
@@ -41,16 +42,15 @@ class AudioAdapter(
             else R.drawable.ic_favorite_border
         )
 
-        if (audio.artworkUri != null) {
+        if (!audio.artworkUri.isNullOrEmpty()) {
             Glide.with(holder.artwork)
                 .load(Uri.parse(audio.artworkUri))
-                .placeholder(R.drawable.ic_music_placeholder)
-                .error(R.drawable.ic_music_placeholder)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .placeholder(R.drawable.bg_artwork_placeholder)
+                .error(R.drawable.bg_artwork_placeholder)
                 .into(holder.artwork)
         } else {
-            Glide.with(holder.artwork)
-                .load(R.drawable.ic_music_placeholder)
-                .into(holder.artwork)
+            holder.artwork.setImageResource(R.drawable.bg_artwork_placeholder)
         }
 
         holder.itemView.setOnClickListener {
