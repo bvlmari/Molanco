@@ -1,30 +1,71 @@
 package com.bvlmari.molanco.ui.main
 
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
-import com.bvlmari.molanco.R
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bvlmari.molanco.R
+import com.bvlmari.molanco.data.DatabaseHelper
 import com.bvlmari.molanco.data.model.AudioFile
 
-class AudioAdapter(private val audioList: List<AudioFile>) : RecyclerView.Adapter<AudioAdapter.AudioViewHolder>() {
+class AudioAdapter(
+    private val audioFiles: List<AudioFile>,
+    private val onItemClick: (AudioFile) -> Unit
+) : RecyclerView.Adapter<AudioAdapter.ViewHolder>() {
 
-    class AudioViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView){
-        val titleText: TextView = itemView.findViewById(R.id.songTitle)
-        val artistText: TextView = itemView.findViewById(R.id.songArtist)
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val artwork: ImageView = view.findViewById(R.id.imageArtwork)
+        val title: TextView = view.findViewById(R.id.textTitle)
+        val artist: TextView = view.findViewById(R.id.textArtist)
+        val favorite: ImageButton = view.findViewById(R.id.buttonFavorite)
+        val dbHelper = DatabaseHelper(view.context)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AudioViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_audio, parent, false)
-        return AudioViewHolder(view)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_audio, parent, false)
+        return ViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: AudioViewHolder, position: Int) {
-        val audio = audioList[position]
-        holder.titleText.text = audio.title
-        holder.artistText.text = audio.artist
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val audio = audioFiles[position]
+        holder.title.text = audio.title
+        holder.artist.text = audio.artist
+        holder.favorite.setImageResource(
+            if (audio.isFavorite) R.drawable.ic_favorite_filled
+            else R.drawable.ic_favorite_border
+        )
+
+        if (audio.artworkUri != null) {
+            Glide.with(holder.artwork)
+                .load(Uri.parse(audio.artworkUri))
+                .placeholder(R.drawable.ic_music_placeholder)
+                .error(R.drawable.ic_music_placeholder)
+                .into(holder.artwork)
+        } else {
+            Glide.with(holder.artwork)
+                .load(R.drawable.ic_music_placeholder)
+                .into(holder.artwork)
+        }
+
+        holder.itemView.setOnClickListener {
+            onItemClick(audio)
+        }
+
+        holder.favorite.setOnClickListener {
+            holder.dbHelper.toggleFavorite(audio.path)
+            audio.isFavorite = !audio.isFavorite
+            holder.favorite.setImageResource(
+                if (audio.isFavorite) R.drawable.ic_favorite_filled
+                else R.drawable.ic_favorite_border
+            )
+        }
     }
 
-    override fun getItemCount(): Int = audioList.size
+    override fun getItemCount() = audioFiles.size
 }
